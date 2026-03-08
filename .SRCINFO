@@ -8,9 +8,7 @@ pkgbase = skr
 	depends = zsh
 	depends = kodi-eventclients
 	depends = ncurses
-	source = skr
-	source = LICENSE.md
-	sha256sums = 26ca3c29b213fbd6befe1a526a104d9fe5af9763004506ccdbafff37daf165ec
-	sha256sums = cc5470feed66192387f06ae93aed0bd4fefae5a5fd7c1e54a4acf4ea64f1028b
+	source = skr-1.0.0.tar.gz::https://github.com/tunnell/simple-kodi-remote/archive/v1.0.0.tar.gz
+	sha256sums = ca4967f33fafd3c3793121370b2159cc6e4d596cfa37f9d909adcdc0374fafee
 
 pkgname = skr

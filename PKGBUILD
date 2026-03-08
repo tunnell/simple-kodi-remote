@@ -7,11 +7,11 @@ arch=('any')
 url="https://github.com/tunnell/simple-kodi-remote"
 license=('GPL3')
 depends=('zsh' 'kodi-eventclients' 'ncurses')
-source=("skr" "LICENSE.md")
-sha256sums=('26ca3c29b213fbd6befe1a526a104d9fe5af9763004506ccdbafff37daf165ec'
-            'cc5470feed66192387f06ae93aed0bd4fefae5a5fd7c1e54a4acf4ea64f1028b')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/tunnell/simple-kodi-remote/archive/v$pkgver.tar.gz")
+sha256sums=('ca4967f33fafd3c3793121370b2159cc6e4d596cfa37f9d909adcdc0374fafee')
 
 package() {
-    install -Dm755 "$srcdir/skr" "$pkgdir/usr/bin/skr"
-    install -Dm644 "$srcdir/LICENSE.md" "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
+    cd "simple-kodi-remote-$pkgver"
+    install -Dm755 skr "$pkgdir/usr/bin/skr"
+    install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
 }
