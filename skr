@@ -1,0 +1,179 @@
+#!/usr/bin/env zsh
+#
+# skr - Simple Kodi Remote
+# A TUI remote control for Kodi using kodi-send
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) tunnell
+#
+
+setopt errexit nounset pipefail
+
+# Configuration
+typeset -g CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/skr/config"
+typeset -g KODI_HOST="localhost"
+
+# Terminal state
+typeset -g TERM_COLS=0
+typeset -g TERM_ROWS=0
+typeset -g LAST_COMMAND="Ready"
+typeset -g LAST_TIMESTAMP=""
+
+# Colors
+readonly RESET=$'\033[0m'
+readonly BOLD=$'\033[1m'
+readonly DIM=$'\033[2m'
+readonly BLUE=$'\033[34m'
+readonly CYAN=$'\033[36m'
+readonly GREEN=$'\033[32m'
+readonly YELLOW=$'\033[33m'
+readonly WHITE=$'\033[37m'
+
+readonly MIN_COLS=42
+readonly MIN_ROWS=22
+
+load_config() {
+    [[ -f "$CONFIG_FILE" ]] || return 0
+    while IFS='=' read -r key value; do
+        [[ -z "$key" || "$key" == \#* ]] && continue
+        key="${key## }"; key="${key%% }"
+        value="${value## }"; value="${value%% }"
+        case "$key" in
+            host) KODI_HOST="$value" ;;
+        esac
+    done < "$CONFIG_FILE"
+}
+
+check_deps() {
+    if ! command -v kodi-send &>/dev/null; then
+        print -u2 "kodi-send not found. Install: sudo pacman -S kodi-eventclients"
+        exit 1
+    fi
+}
+
+cleanup() {
+    stty sane 2>/dev/null || true
+    tput cnorm 2>/dev/null || true
+    tput clear 2>/dev/null || true
+    print "Goodbye!"
+}
+
+get_term_size() {
+    TERM_COLS=$(tput cols)
+    TERM_ROWS=$(tput lines)
+}
+
+move_to() { tput cup "$1" "$2"; }
+
+send_kodi() {
+    local action="$1" name="${2:-$1}"
+    LAST_TIMESTAMP=$(date +%H:%M:%S)
+    if kodi-send --host="$KODI_HOST" --action="$action" &>/dev/null; then
+        LAST_COMMAND="$name"
+    else
+        LAST_COMMAND="$name (failed)"
+    fi
+    draw_remote
+}
+
+draw_centered() {
+    local row=$1 text=$2
+    local visible=$(print -n "$text" | sed 's/\x1b\[[0-9;]*m//g')
+    move_to "$row" $(( (TERM_COLS - ${#visible}) / 2 ))
+    print -n "$text"
+}
+
+draw_remote() {
+    tput clear
+    get_term_size
+
+    if (( TERM_COLS < MIN_COLS || TERM_ROWS < MIN_ROWS )); then
+        draw_centered $((TERM_ROWS / 2)) "Terminal too small (${MIN_COLS}x${MIN_ROWS} min)"
+        return
+    fi
+
+    local row=$(( (TERM_ROWS - 20) / 2 ))
+
+    # All lines: exactly 38 visible chars between ║ borders
+    draw_centered $row "${BLUE}╔══════════════════════════════════════╗${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║          ${BOLD}${WHITE}SIMPLE KODI REMOTE${RESET}          ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}╠══════════════════════════════════════╣${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}               ${CYAN}[ ^ ]${RESET} ${DIM}i${RESET}                ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}        ${DIM}h${RESET} ${CYAN}[ < ]${RESET}  ${CYAN}[OK]${RESET}  ${CYAN}[ > ]${RESET} ${DIM}l${RESET}        ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}               ${CYAN}[ v ]${RESET} ${DIM}d${RESET}                ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}    ${DIM}p${RESET} ${CYAN}Prev${RESET}    ${DIM}k/spc${RESET} ${CYAN}Play${RESET}    ${CYAN}Next${RESET} ${DIM}n${RESET}    ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}          ${DIM}<${RESET} ${CYAN}<<30s${RESET}    ${CYAN}30s>>${RESET} ${DIM}>${RESET}          ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}          ${DIM}-${RESET} ${CYAN}Vol-${RESET}      ${CYAN}Vol+${RESET} ${DIM}+${RESET}          ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}          ${DIM}s${RESET} ${CYAN}Stop${RESET}      ${CYAN}Mute${RESET} ${DIM}m${RESET}          ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}        ${DIM}bksp${RESET} ${CYAN}Back${RESET}      ${CYAN}Home${RESET} ${DIM}g${RESET}         ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}╚══════════════════════════════════════╝${RESET}"; ((row++))
+
+    draw_centered $row "${DIM}[q] Quit${RESET}"; ((row+=2))
+
+    local color="${GREEN}"
+    [[ "$LAST_COMMAND" == *"(failed)"* ]] && color="${YELLOW}"
+    if [[ -n "$LAST_TIMESTAMP" ]]; then
+        draw_centered $row "Last command ${DIM}[${LAST_TIMESTAMP}]${RESET}: ${color}${LAST_COMMAND}${RESET}"
+    else
+        draw_centered $row "Last command: ${color}${LAST_COMMAND}${RESET}"
+    fi
+}
+
+handle_key() {
+    local key e1 e2
+    IFS= read -rsk1 key || return
+
+    if [[ "$key" == $'\x1b' ]]; then
+        IFS= read -rsk1 -t 0.1 e1 || return
+        IFS= read -rsk1 -t 0.1 e2 || return
+
+        case "$e1$e2" in
+            "[A") key="UP" ;;    "[B") key="DOWN" ;;
+            "[C") key="RIGHT" ;; "[D") key="LEFT" ;;
+            "[H") key="HOME" ;;  *) return ;;
+        esac
+    fi
+
+    [[ "$key" == $'\x7f' || "$key" == $'\x08' ]] && key="BACKSPACE"
+    [[ "$key" == "" ]] && key="ENTER"
+
+    case "$key" in
+        UP|i)        send_kodi "Action(Up)" "Up" ;;
+        DOWN|d)      send_kodi "Action(Down)" "Down" ;;
+        LEFT|h)      send_kodi "Action(Left)" "Left" ;;
+        RIGHT|l)     send_kodi "Action(Right)" "Right" ;;
+        ENTER)       send_kodi "Action(Select)" "Select" ;;
+        " "|k)       send_kodi "PlayerControl(Play)" "Play/Pause" ;;
+        s)           send_kodi "PlayerControl(Stop)" "Stop" ;;
+        p)           send_kodi "PlayerControl(Previous)" "Previous" ;;
+        n)           send_kodi "PlayerControl(Next)" "Next" ;;
+        ">"|".")     send_kodi "PlayerControl(BigSkipForward)" "Seek +30s" ;;
+        "<"|",")     send_kodi "PlayerControl(BigSkipBackward)" "Seek -30s" ;;
+        "+"|"=")     send_kodi "Action(VolumeUp)" "Vol+" ;;
+        "-"|"_")     send_kodi "Action(VolumeDown)" "Vol-" ;;
+        m)           send_kodi "Mute" "Mute" ;;
+        BACKSPACE)   send_kodi "Action(Back)" "Back" ;;
+        HOME|g)      send_kodi "ActivateWindow(Home)" "Home" ;;
+        q|Q)         exit 0 ;;
+    esac
+}
+
+main() {
+    load_config
+    check_deps
+    trap cleanup EXIT INT TERM HUP
+    trap draw_remote SIGWINCH
+    stty -echo -icanon
+    tput civis
+    draw_remote
+    while true; do handle_key; done
+}
+
+main "$@"
