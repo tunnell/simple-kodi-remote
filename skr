@@ -100,7 +100,7 @@ draw_remote() {
     draw_centered $row "${BLUE}╠══════════════════════════════════════╣${RESET}"; ((row++))
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║${RESET}               ${CYAN}[ ^ ]${RESET} ${DIM}i${RESET}                ${BLUE}║${RESET}"; ((row++))
-    draw_centered $row "${BLUE}║${RESET}        ${DIM}h${RESET} ${CYAN}[ < ]${RESET}  ${CYAN}[OK]${RESET}  ${CYAN}[ > ]${RESET} ${DIM}l${RESET}        ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}       ${DIM}h${RESET} ${CYAN}[ < ]${RESET}  ${CYAN}[OK]${RESET}${DIM}a${RESET}  ${CYAN}[ > ]${RESET} ${DIM}l${RESET}        ${BLUE}║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║${RESET}               ${CYAN}[ v ]${RESET} ${DIM}d${RESET}                ${BLUE}║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║${RESET}    ${DIM}p${RESET} ${CYAN}Prev${RESET}    ${DIM}k/spc${RESET} ${CYAN}Play${RESET}    ${CYAN}Next${RESET} ${DIM}n${RESET}    ${BLUE}║${RESET}"; ((row++))
@@ -149,7 +149,7 @@ handle_key() {
         DOWN|d)      send_kodi "Action(Down)" "Down" ;;
         LEFT|h)      send_kodi "Action(Left)" "Left" ;;
         RIGHT|l)     send_kodi "Action(Right)" "Right" ;;
-        ENTER)       send_kodi "Action(Select)" "Select" ;;
+        ENTER|a)     send_kodi "Action(Select)" "Select" ;;
         " "|k)       send_kodi "PlayerControl(Play)" "Play/Pause" ;;
         s)           send_kodi "PlayerControl(Stop)" "Stop" ;;
         p)           send_kodi "PlayerControl(Previous)" "Previous" ;;
