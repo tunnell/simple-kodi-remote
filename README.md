@@ -1,6 +1,9 @@
 # skr - Simple Kodi Remote
 
-A terminal-based remote control for Kodi with vim-style keys and multi-tap seek.
+A **hardened**, terminal-based remote control for Kodi with vim-style keys and
+multi-tap seek. Unlike other terminal remotes, `skr` drives Kodi purely through
+`kodi-send` (the send-only EventServer protocol) — Kodi's HTTP/JSON-RPC web
+server can stay disabled.
 
 ## Screenshot
 
@@ -91,6 +94,35 @@ config file.
 Volume and navigation keys are hold-safe over SSH: keystrokes buffered
 while a command is in flight are dropped, so holding a key stops acting
 as soon as you release it.
+
+## Why kodi-send? (hardening)
+
+Every other terminal remote for Kodi we're aware of —
+[kodi-control](https://github.com/KenKundert/kodi-control),
+[kodi-cli](https://github.com/JavaWiz1/kodi-cli)
+([both](https://github.com/nawar/kodi-cli) of them),
+[kodictl](https://github.com/vdloo/kodictl),
+[kodi-controller-cli](https://github.com/hash-bang/kodi-controller-cli),
+[kodi-command-line](https://github.com/chbarts/kodi-command-line) — speaks
+JSON-RPC over HTTP, which requires enabling Kodi's web server: a listening
+TCP service with credentials and a queryable API (library contents, even
+filesystem browsing). `skr` instead drives Kodi exclusively through
+`kodi-send` and the [EventServer](https://kodi.wiki/view/EventServer)
+protocol:
+
+- **No web server** — leave *Allow remote control via HTTP* disabled
+- **Send-only UDP** — there is no response channel; even a fully
+  compromised client can only inject input events, never read data back
+- **Localhost-scoped** — enable only *Allow programs on **this** system to
+  control Kodi*, run `skr` on the Kodi box over SSH, and the only
+  network-exposed control surface is sshd
+
+The trade-off: with no query channel, `skr` cannot display player state
+(now playing, seek position) — the status line shows the last command
+*sent* instead. That's the price of send-only, and the point.
+
+As far as we know, `skr` is the only interactive TUI remote for Kodi that
+works this way.
 
 ## Requirements
 

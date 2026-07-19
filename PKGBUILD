@@ -2,7 +2,7 @@
 pkgname=skr
 pkgver=1.0.0
 pkgrel=1
-pkgdesc="Simple Kodi Remote - A terminal-based remote control for Kodi"
+pkgdesc="Simple Kodi Remote - hardened terminal remote for Kodi via kodi-send (no web server needed)"
 arch=('any')
 url="https://github.com/tunnell/simple-kodi-remote"
 license=('GPL3')

@@ -1,5 +1,5 @@
 pkgbase = skr
-	pkgdesc = Simple Kodi Remote - A terminal-based remote control for Kodi
+	pkgdesc = Simple Kodi Remote - hardened terminal remote for Kodi via kodi-send (no web server needed)
 	pkgver = 1.0.0
 	pkgrel = 1
 	url = https://github.com/tunnell/simple-kodi-remote
