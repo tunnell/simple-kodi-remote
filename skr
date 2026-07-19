@@ -8,16 +8,27 @@
 #
 
 setopt errexit nounset pipefail
+zmodload zsh/datetime  # provides $EPOCHREALTIME
 
 # Configuration
 typeset -g CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/skr/config"
 typeset -g KODI_HOST="localhost"
+# Multi-tap seek window (seconds): taps within this window stack (10s/100s/1000s)
+typeset -g SEEK_WINDOW="0.4"
 
 # Terminal state
 typeset -g TERM_COLS=0
 typeset -g TERM_ROWS=0
 typeset -g LAST_COMMAND="Ready"
 typeset -g LAST_TIMESTAMP=""
+
+# Multi-tap seek state
+typeset -g SEEK_DIR=0       # 1 = forward, -1 = backward, 0 = none pending
+typeset -g SEEK_COUNT=0     # number of taps in the current burst (max 3)
+typeset -g SEEK_DEADLINE=0  # $EPOCHREALTIME after which the burst commits
+
+# Decoded key from read_key()
+typeset -g KEY=""
 
 # Colors
 readonly RESET=$'\033[0m'
@@ -40,6 +51,7 @@ load_config() {
         value="${value## }"; value="${value%% }"
         case "$key" in
             host) KODI_HOST="$value" ;;
+            seek_window) SEEK_WINDOW="$value" ;;
         esac
     done < "$CONFIG_FILE"
 }
@@ -65,6 +77,14 @@ get_term_size() {
 
 move_to() { tput cup "$1" "$2"; }
 
+# Discard any input buffered while we were busy. Over SSH a held key
+# (e.g. volume) auto-repeats faster than kodi-send round-trips, so without
+# this the queue keeps draining after the key is released.
+flush_input() {
+    local d
+    while IFS= read -rsk1 -t 0.001 d 2>/dev/null; do :; done
+}
+
 send_kodi() {
     local action="$1" name="${2:-$1}"
     LAST_TIMESTAMP=$(date +%H:%M:%S)
@@ -74,6 +94,7 @@ send_kodi() {
         LAST_COMMAND="$name (failed)"
     fi
     draw_remote
+    flush_input
 }
 
 draw_centered() {
@@ -105,13 +126,13 @@ draw_remote() {
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║${RESET}    ${DIM}p${RESET} ${CYAN}Prev${RESET}    ${DIM}k/spc${RESET} ${CYAN}Play${RESET}    ${CYAN}Next${RESET} ${DIM}n${RESET}    ${BLUE}║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
-    draw_centered $row "${BLUE}║${RESET}          ${DIM}<${RESET} ${CYAN}<<30s${RESET}    ${CYAN}30s>>${RESET} ${DIM}>${RESET}          ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}      ${DIM},<${RESET} ${CYAN}Seek<<${RESET}        ${CYAN}>>Seek${RESET} ${DIM}>.${RESET}      ${BLUE}║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║${RESET}          ${DIM}-${RESET} ${CYAN}Vol-${RESET}      ${CYAN}Vol+${RESET} ${DIM}+${RESET}          ${BLUE}║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║${RESET}          ${DIM}s${RESET} ${CYAN}Stop${RESET}      ${CYAN}Mute${RESET} ${DIM}m${RESET}          ${BLUE}║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
-    draw_centered $row "${BLUE}║${RESET}        ${DIM}bksp${RESET} ${CYAN}Back${RESET}      ${CYAN}Home${RESET} ${DIM}g${RESET}         ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}      ${DIM}b/bksp${RESET} ${CYAN}Back${RESET}      ${CYAN}Home${RESET} ${DIM}g${RESET}         ${BLUE}║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
     draw_centered $row "${BLUE}╚══════════════════════════════════════╝${RESET}"; ((row++))
 
@@ -126,43 +147,111 @@ draw_remote() {
     fi
 }
 
-handle_key() {
-    local key e1 e2
-    IFS= read -rsk1 key || return
+# Read one logical keypress into the global KEY. With an optional timeout
+# (seconds, may be fractional) it returns non-zero if nothing arrives in time.
+read_key() {
+    local timeout="${1:-}" k e1 e2
+    if [[ -n "$timeout" ]]; then
+        IFS= read -rsk1 -t "$timeout" k || return 1
+    else
+        IFS= read -rsk1 k || return 1
+    fi
 
-    if [[ "$key" == $'\x1b' ]]; then
-        IFS= read -rsk1 -t 0.1 e1 || return
-        IFS= read -rsk1 -t 0.1 e2 || return
-
+    if [[ "$k" == $'\x1b' ]]; then
+        IFS= read -rsk1 -t 0.1 e1 || { KEY="ESC"; return 0; }
+        IFS= read -rsk1 -t 0.1 e2 || { KEY="ESC"; return 0; }
         case "$e1$e2" in
-            "[A") key="UP" ;;    "[B") key="DOWN" ;;
-            "[C") key="RIGHT" ;; "[D") key="LEFT" ;;
-            "[H") key="HOME" ;;  *) return ;;
+            "[A") k="UP" ;;    "[B") k="DOWN" ;;
+            "[C") k="RIGHT" ;; "[D") k="LEFT" ;;
+            "[H") k="HOME" ;;  *) k="UNKNOWN" ;;
         esac
     fi
 
-    [[ "$key" == $'\x7f' || "$key" == $'\x08' ]] && key="BACKSPACE"
-    [[ "$key" == "" ]] && key="ENTER"
+    [[ "$k" == $'\x7f' || "$k" == $'\x08' ]] && k="BACKSPACE"
+    [[ "$k" == "" ]] && k="ENTER"
+    KEY="$k"
+    return 0
+}
 
+# Register a seek tap. Taps in the same direction within SEEK_WINDOW stack:
+# 1 tap = 10s, 2 = 100s, 3 = 1000s. The actual Seek() fires from flush_seek
+# once the burst goes quiet, so rapid taps never queue network round-trips.
+seek_tap() {
+    local dir=$1 now=$EPOCHREALTIME
+    if (( SEEK_DIR == dir && now < SEEK_DEADLINE )); then
+        if (( SEEK_COUNT < 3 )); then
+            (( SEEK_COUNT += 1 ))
+        fi
+    else
+        flush_seek
+        SEEK_DIR=$dir
+        SEEK_COUNT=1
+    fi
+    SEEK_DEADLINE=$(( now + SEEK_WINDOW ))
+
+    local secs=$(( 10 ** SEEK_COUNT )) sign="+"
+    (( dir < 0 )) && sign="-"
+    LAST_TIMESTAMP=$(date +%H:%M:%S)
+    LAST_COMMAND="Seek ${sign}${secs}s..."
+    draw_remote
+}
+
+# Commit a pending seek burst as a single relative Seek(seconds).
+flush_seek() {
+    (( SEEK_DIR != 0 )) || return 0
+    local amt=$(( SEEK_DIR * 10 ** SEEK_COUNT ))
+    SEEK_DIR=0
+    SEEK_COUNT=0
+    send_kodi "Seek($amt)" "Seek ${amt}s"
+}
+
+dispatch_key() {
+    local key="$1"
     case "$key" in
-        UP|i)        send_kodi "Action(Up)" "Up" ;;
-        DOWN|d)      send_kodi "Action(Down)" "Down" ;;
-        LEFT|h)      send_kodi "Action(Left)" "Left" ;;
-        RIGHT|l)     send_kodi "Action(Right)" "Right" ;;
-        ENTER|a)     send_kodi "Action(Select)" "Select" ;;
-        " "|k)       send_kodi "PlayerControl(Play)" "Play/Pause" ;;
-        s)           send_kodi "PlayerControl(Stop)" "Stop" ;;
-        p)           send_kodi "PlayerControl(Previous)" "Previous" ;;
-        n)           send_kodi "PlayerControl(Next)" "Next" ;;
-        ">"|".")     send_kodi "PlayerControl(BigSkipForward)" "Seek +30s" ;;
-        "<"|",")     send_kodi "PlayerControl(BigSkipBackward)" "Seek -30s" ;;
-        "+"|"=")     send_kodi "Action(VolumeUp)" "Vol+" ;;
-        "-"|"_")     send_kodi "Action(VolumeDown)" "Vol-" ;;
-        m)           send_kodi "Mute" "Mute" ;;
-        BACKSPACE)   send_kodi "Action(Back)" "Back" ;;
-        HOME|g)      send_kodi "ActivateWindow(Home)" "Home" ;;
-        q|Q)         exit 0 ;;
+        ">"|".")     seek_tap 1 ;;
+        "<"|",")     seek_tap -1 ;;
+        *)
+            flush_seek  # any other key commits a pending seek first
+            case "$key" in
+                UP|i)        send_kodi "Action(Up)" "Up" ;;
+                DOWN|d)      send_kodi "Action(Down)" "Down" ;;
+                LEFT|h)      send_kodi "Action(Left)" "Left" ;;
+                RIGHT|l)     send_kodi "Action(Right)" "Right" ;;
+                ENTER|a)     send_kodi "Action(Select)" "Select" ;;
+                " "|k)       send_kodi "PlayerControl(Play)" "Play/Pause" ;;
+                s)           send_kodi "PlayerControl(Stop)" "Stop" ;;
+                p)           send_kodi "PlayerControl(Previous)" "Previous" ;;
+                n)           send_kodi "PlayerControl(Next)" "Next" ;;
+                "+"|"=")     send_kodi "Action(VolumeUp)" "Vol+" ;;
+                "-"|"_")     send_kodi "Action(VolumeDown)" "Vol-" ;;
+                m)           send_kodi "Mute" "Mute" ;;
+                BACKSPACE|b) send_kodi "Action(Back)" "Back" ;;
+                HOME|g)      send_kodi "ActivateWindow(Home)" "Home" ;;
+                q|Q)         exit 0 ;;
+            esac
+            ;;
     esac
+}
+
+# Main event loop. When a seek burst is pending, read with a timeout so the
+# burst commits once SEEK_WINDOW elapses with no further tap.
+event_loop() {
+    local remaining
+    while true; do
+        if (( SEEK_DIR != 0 )); then
+            remaining=$(( SEEK_DEADLINE - EPOCHREALTIME ))
+            (( remaining > 0 )) || remaining=0
+            if read_key "$remaining"; then
+                dispatch_key "$KEY"
+            else
+                flush_seek
+            fi
+        else
+            if read_key; then
+                dispatch_key "$KEY"
+            fi
+        fi
+    done
 }
 
 main() {
@@ -173,7 +262,7 @@ main() {
     stty -echo -icanon
     tput civis
     draw_remote
-    while true; do handle_key; done
+    event_loop
 }
 
 main "$@"
