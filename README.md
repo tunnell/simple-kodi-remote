@@ -24,7 +24,7 @@ A terminal-based remote control for Kodi with vim-style keys and multi-tap seek.
 ║      b/bksp Back      Home g         ║
 ║                                      ║
 ╚══════════════════════════════════════╝
-                [q] Quit
+              [q/esc] Quit
 
   Last command [14:32:05]: Seek +16s
 ```
@@ -77,7 +77,7 @@ seek_window=0.4
 | m             | Mute                            |
 | Right / > / . | Seek forward (multi-tap)        |
 | Left / < / ,  | Seek backward (multi-tap)       |
-| q             | Quit                            |
+| q / Esc / ^C  | Quit                            |
 
 ### Multi-tap seek
 

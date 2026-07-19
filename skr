@@ -136,7 +136,7 @@ draw_remote() {
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
     draw_centered $row "${BLUE}╚══════════════════════════════════════╝${RESET}"; ((row++))
 
-    draw_centered $row "${DIM}[q] Quit${RESET}"; ((row+=2))
+    draw_centered $row "${DIM}[q/esc] Quit${RESET}"; ((row+=2))
 
     local color="${GREEN}"
     [[ "$LAST_COMMAND" == *"(failed)"* ]] && color="${YELLOW}"
@@ -230,7 +230,7 @@ dispatch_key() {
                 m)           send_kodi "Mute" "Mute" ;;
                 BACKSPACE|b) send_kodi "Action(Back)" "Back" ;;
                 HOME|g)      send_kodi "ActivateWindow(Home)" "Home" ;;
-                q|Q)         exit 0 ;;
+                q|Q|ESC)     exit 0 ;;
             esac
             ;;
     esac
@@ -260,7 +260,12 @@ event_loop() {
 main() {
     load_config
     check_deps
-    trap cleanup EXIT INT TERM HUP
+    # cleanup runs on EXIT; signal traps must exit explicitly or zsh
+    # resumes the interrupted input loop after the handler returns
+    trap cleanup EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    trap 'exit 129' HUP
     trap draw_remote SIGWINCH
     stty -echo -icanon
     tput civis
