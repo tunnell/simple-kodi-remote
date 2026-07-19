@@ -173,13 +173,15 @@ read_key() {
     return 0
 }
 
-# Register a seek tap. Taps in the same direction within SEEK_WINDOW stack:
-# 1 tap = 10s, 2 = 100s, 3 = 1000s. The actual Seek() fires from flush_seek
-# once the burst goes quiet, so rapid taps never queue network round-trips.
+# Register a seek tap. Taps in the same direction within SEEK_WINDOW double
+# the amount: 1 tap = 2s, 2 = 4s, 3 = 8s, 4 = 16s, ... for as long as the
+# burst continues. The actual Seek() fires from flush_seek once the burst
+# goes quiet, so rapid taps never queue network round-trips.
 seek_tap() {
     local dir=$1 now=$EPOCHREALTIME
     if (( SEEK_DIR == dir && now < SEEK_DEADLINE )); then
-        if (( SEEK_COUNT < 3 )); then
+        # Sanity cap: 2^16 = 65536s (~18h) is beyond any media
+        if (( SEEK_COUNT < 16 )); then
             (( SEEK_COUNT += 1 ))
         fi
     else
@@ -189,20 +191,21 @@ seek_tap() {
     fi
     SEEK_DEADLINE=$(( now + SEEK_WINDOW ))
 
-    local secs=$(( 10 ** SEEK_COUNT )) sign="+"
+    local secs=$(( 2 ** SEEK_COUNT )) sign="+"
     (( dir < 0 )) && sign="-"
     LAST_TIMESTAMP=$(date +%H:%M:%S)
-    LAST_COMMAND="Seek ${sign}${secs}s..."
+    LAST_COMMAND="Seek ${sign}${secs}s (tap ${SEEK_COUNT})..."
     draw_remote
 }
 
 # Commit a pending seek burst as a single relative Seek(seconds).
 flush_seek() {
     (( SEEK_DIR != 0 )) || return 0
-    local amt=$(( SEEK_DIR * 10 ** SEEK_COUNT ))
+    local amt=$(( SEEK_DIR * 2 ** SEEK_COUNT )) sign=""
+    (( amt > 0 )) && sign="+"
     SEEK_DIR=0
     SEEK_COUNT=0
-    send_kodi "Seek($amt)" "Seek ${amt}s"
+    send_kodi "Seek($amt)" "Seek ${sign}${amt}s"
 }
 
 dispatch_key() {
