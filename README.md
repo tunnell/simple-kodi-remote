@@ -13,9 +13,9 @@ A terminal-based remote control for Kodi with vim-style keys and multi-tap seek.
 ║       h [ < ]  [OK]a  [ > ] l        ║
 ║               [ v ] d                ║
 ║                                      ║
-║    p Prev    k/spc Play    Next n    ║
+║   ↑p Prev    k/spc Play    Next n↓   ║
 ║                                      ║
-║      ,< Seek<<        >>Seek >.      ║
+║     ←,< Seek<<        >>Seek >.→     ║
 ║                                      ║
 ║          - Vol-      Vol+ +          ║
 ║                                      ║
@@ -59,25 +59,25 @@ seek_window=0.4
 
 ## Keybindings
 
-| Key           | Action                       |
-|---------------|------------------------------|
-| Space / k     | Play / Pause                 |
-| s             | Stop                         |
-| h / Left      | Navigate left                |
-| l / Right     | Navigate right               |
-| Up / i        | Navigate up                  |
-| Down / d      | Navigate down                |
-| Enter / a     | Select                       |
-| Backspace / b | Back                         |
-| Home / g      | Home screen                  |
-| p             | Previous                     |
-| n             | Next                         |
-| + / =         | Volume up                    |
-| - / _         | Volume down                  |
-| m             | Mute                         |
-| > / .         | Seek forward (multi-tap)     |
-| < / ,         | Seek backward (multi-tap)    |
-| q             | Quit                         |
+| Key           | Action                          |
+|---------------|---------------------------------|
+| Space / k     | Play / Pause                    |
+| s             | Stop                            |
+| h             | Navigate left                   |
+| l             | Navigate right                  |
+| i             | Navigate up                     |
+| d             | Navigate down                   |
+| Enter / a     | Select                          |
+| Backspace / b | Back                            |
+| Home / g      | Home screen                     |
+| Up / p        | Previous (playlist/episode)     |
+| Down / n      | Next (playlist/episode)         |
+| + / =         | Volume up                       |
+| - / _         | Volume down                     |
+| m             | Mute                            |
+| Right / > / . | Seek forward (multi-tap)        |
+| Left / < / ,  | Seek backward (multi-tap)       |
+| q             | Quit                            |
 
 ### Multi-tap seek
 
