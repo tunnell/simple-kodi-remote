@@ -124,9 +124,9 @@ draw_remote() {
     draw_centered $row "${BLUE}║${RESET}       ${DIM}h${RESET} ${CYAN}[ < ]${RESET}  ${CYAN}[OK]${RESET}${DIM}a${RESET}  ${CYAN}[ > ]${RESET} ${DIM}l${RESET}        ${BLUE}║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║${RESET}               ${CYAN}[ v ]${RESET} ${DIM}d${RESET}                ${BLUE}║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
-    draw_centered $row "${BLUE}║${RESET}   ${DIM}↑p${RESET} ${CYAN}Prev${RESET}    ${DIM}k/spc${RESET} ${CYAN}Play${RESET}    ${CYAN}Next${RESET} ${DIM}n↓${RESET}   ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}    ${DIM}p${RESET} ${CYAN}Prev${RESET}    ${DIM}k/spc${RESET} ${CYAN}Play${RESET}    ${CYAN}Next${RESET} ${DIM}n${RESET}    ${BLUE}║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
-    draw_centered $row "${BLUE}║${RESET}     ${DIM}←,<${RESET} ${CYAN}Seek<<${RESET}        ${CYAN}>>Seek${RESET} ${DIM}>.→${RESET}     ${BLUE}║${RESET}"; ((row++))
+    draw_centered $row "${BLUE}║${RESET}      ${DIM},<${RESET} ${CYAN}Seek<<${RESET}        ${CYAN}>>Seek${RESET} ${DIM}>.${RESET}      ${BLUE}║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║${RESET}          ${DIM}-${RESET} ${CYAN}Vol-${RESET}      ${CYAN}Vol+${RESET} ${DIM}+${RESET}          ${BLUE}║${RESET}"; ((row++))
     draw_centered $row "${BLUE}║                                      ║${RESET}"; ((row++))
@@ -211,20 +211,20 @@ flush_seek() {
 dispatch_key() {
     local key="$1"
     case "$key" in
-        ">"|"."|RIGHT) seek_tap 1 ;;
-        "<"|","|LEFT)  seek_tap -1 ;;
+        ">"|".")     seek_tap 1 ;;
+        "<"|",")     seek_tap -1 ;;
         *)
             flush_seek  # any other key commits a pending seek first
             case "$key" in
-                i)           send_kodi "Action(Up)" "Up" ;;
-                d)           send_kodi "Action(Down)" "Down" ;;
-                h)           send_kodi "Action(Left)" "Left" ;;
-                l)           send_kodi "Action(Right)" "Right" ;;
+                UP|i)        send_kodi "Action(Up)" "Up" ;;
+                DOWN|d)      send_kodi "Action(Down)" "Down" ;;
+                LEFT|h)      send_kodi "Action(Left)" "Left" ;;
+                RIGHT|l)     send_kodi "Action(Right)" "Right" ;;
                 ENTER|a)     send_kodi "Action(Select)" "Select" ;;
                 " "|k)       send_kodi "PlayerControl(Play)" "Play/Pause" ;;
                 s)           send_kodi "PlayerControl(Stop)" "Stop" ;;
-                p|UP)        send_kodi "PlayerControl(Previous)" "Previous" ;;
-                n|DOWN)      send_kodi "PlayerControl(Next)" "Next" ;;
+                p)           send_kodi "PlayerControl(Previous)" "Previous" ;;
+                n)           send_kodi "PlayerControl(Next)" "Next" ;;
                 "+"|"=")     send_kodi "Action(VolumeUp)" "Vol+" ;;
                 "-"|"_")     send_kodi "Action(VolumeDown)" "Vol-" ;;
                 m)           send_kodi "Mute" "Mute" ;;

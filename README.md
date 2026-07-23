@@ -16,9 +16,9 @@ server can stay disabled.
 ║       h [ < ]  [OK]a  [ > ] l        ║
 ║               [ v ] d                ║
 ║                                      ║
-║   ↑p Prev    k/spc Play    Next n↓   ║
+║    p Prev    k/spc Play    Next n    ║
 ║                                      ║
-║     ←,< Seek<<        >>Seek >.→     ║
+║      ,< Seek<<        >>Seek >.      ║
 ║                                      ║
 ║          - Vol-      Vol+ +          ║
 ║                                      ║
@@ -66,20 +66,20 @@ seek_window=0.4
 |---------------|---------------------------------|
 | Space / k     | Play / Pause                    |
 | s             | Stop                            |
-| h             | Navigate left                   |
-| l             | Navigate right                  |
-| i             | Navigate up                     |
-| d             | Navigate down                   |
+| h / Left      | Navigate left                   |
+| l / Right     | Navigate right                  |
+| i / Up        | Navigate up                     |
+| d / Down      | Navigate down                   |
 | Enter / a     | Select                          |
 | Backspace / b | Back                            |
 | Home / g      | Home screen                     |
-| Up / p        | Previous (playlist/episode)     |
-| Down / n      | Next (playlist/episode)         |
+| p             | Previous (playlist/episode)     |
+| n             | Next (playlist/episode)         |
 | + / =         | Volume up                       |
 | - / _         | Volume down                     |
 | m             | Mute                            |
-| Right / > / . | Seek forward (multi-tap)        |
-| Left / < / ,  | Seek backward (multi-tap)       |
+| > / .         | Seek forward (multi-tap)        |
+| < / ,         | Seek backward (multi-tap)       |
 | q / Esc / ^C  | Quit                            |
 
 ### Multi-tap seek
