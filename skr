@@ -8,12 +8,29 @@
 #
 
 setopt errexit nounset pipefail
+setopt multibyte       # count characters, not bytes, in ${#var}
 zmodload zsh/datetime  # provides $EPOCHREALTIME
+
+# Over ssh the locale is often not forwarded, leaving us in the C locale.
+# Box-drawing characters are then 3 bytes each and ${#var} counts bytes,
+# which breaks centering. Pick a UTF-8 locale if the current one isn't.
+ensure_utf8_locale() {
+    [[ "$(locale charmap 2>/dev/null)" == "UTF-8" ]] && return 0
+    local l
+    for l in C.UTF-8 C.utf8 en_US.UTF-8 en_US.utf8; do
+        if locale -a 2>/dev/null | grep -qix "$l"; then
+            export LC_ALL="$l"
+            return 0
+        fi
+    done
+    return 1
+}
+ensure_utf8_locale || true
 
 # Configuration
 typeset -g CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/skr/config"
 typeset -g KODI_HOST="localhost"
-# Multi-tap seek window (seconds): taps within this window stack (10s/100s/1000s)
+# Multi-tap seek window (seconds): taps within this window stack
 typeset -g SEEK_WINDOW="0.4"
 
 # Terminal state
@@ -24,7 +41,7 @@ typeset -g LAST_TIMESTAMP=""
 
 # Multi-tap seek state
 typeset -g SEEK_DIR=0       # 1 = forward, -1 = backward, 0 = none pending
-typeset -g SEEK_COUNT=0     # number of taps in the current burst (max 3)
+typeset -g SEEK_COUNT=0     # number of taps in the current burst
 typeset -g SEEK_DEADLINE=0  # $EPOCHREALTIME after which the burst commits
 
 # Decoded key from read_key()
@@ -71,11 +88,17 @@ cleanup() {
 }
 
 get_term_size() {
-    TERM_COLS=$(tput cols)
-    TERM_ROWS=$(tput lines)
+    TERM_COLS=$(tput cols 2>/dev/null) || TERM_COLS=0
+    TERM_ROWS=$(tput lines 2>/dev/null) || TERM_ROWS=0
 }
 
-move_to() { tput cup "$1" "$2"; }
+# Never pass negative coordinates: tput would parse "-N" as an option.
+move_to() {
+    local row=$1 col=$2
+    (( row < 0 )) && row=0
+    (( col < 0 )) && col=0
+    tput cup "$row" "$col"
+}
 
 # Discard any input buffered while we were busy. Over SSH a held key
 # (e.g. volume) auto-repeats faster than kodi-send round-trips, so without
@@ -98,9 +121,11 @@ send_kodi() {
 }
 
 draw_centered() {
-    local row=$1 text=$2
+    local row=$1 text=$2 col
     local visible=$(print -n "$text" | sed 's/\x1b\[[0-9;]*m//g')
-    move_to "$row" $(( (TERM_COLS - ${#visible}) / 2 ))
+    col=$(( (TERM_COLS - ${#visible}) / 2 ))
+    (( col < 0 )) && col=0
+    move_to "$row" "$col"
     print -n "$text"
 }
 
